@@ -9,6 +9,8 @@ val animals = Source
   .map(_.trim())
   .filter(_.startsWith("\""))
   .map(_.replace("\"", ""))
+  .map(_.replace(",", ""))
+  .map(_.replace(" ", "-"))
   .mkString("\n")
 
 writer.write(animals)
