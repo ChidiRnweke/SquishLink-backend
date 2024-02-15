@@ -1,6 +1,5 @@
 import Shorten._
 import cats.effect._
-import munit.CatsEffectSuite
 import munit._
 import io.circe._
 import io.circe.generic.auto._
@@ -10,10 +9,8 @@ import Config.DbConfig
 import Config.AppResources.makeTransactor
 import scala.sys.process._
 import org.http4s.client.Client
-import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.implicits._
 import org.http4s._
-import org.http4s.server.middleware.ErrorAction.httpApp
 import cats.syntax.all._
 
 class MockDatabaseOps(unique: Boolean = true) extends DatabaseOps:
