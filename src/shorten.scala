@@ -1,22 +1,25 @@
 package Shorten
+import cats.data.Kleisli
 import cats.effect._
-import cats.effect.std.{Random, Env}
+import cats.effect.std.Env
+import cats.effect.std.Random
+import cats.syntax.all._
 import doobie._
 import doobie.implicits._
 import fs2.Stream
-import cats.syntax.all._
 
 import java.io.File
-import cats.data.Kleisli
 
+case class Link(link: String)
 case class RandomLink(adjective: String, noun: String, number: Int):
   override def toString(): String = s"$adjective$noun$number"
 
 enum ShortenedLink:
-  case FoundLink(val original: String)
+  case FoundLink(val link: String)
   case NotFoundLink(val notFound: String)
 
 trait DatabaseOps:
+  val rootURL: String
   def validateUniqueness(input: RandomLink): IO[Boolean]
   def storeInDatabase(original: String, link: RandomLink): IO[Unit]
   def findInDatabase(shortenedURL: String): IO[ShortenedLink]
@@ -50,10 +53,10 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
       url: String,
       link: RandomLink
   ): ConnectionIO[Unit] =
-    val fullURL = url + link.toString()
+    val uri = link.toString()
     sql"""
       insert into links (original_url, url, adjective, noun, number)
-      values ($original, $fullURL, ${link.adjective}, 
+      values ($original, ${uri}, ${link.adjective}, 
       ${link.noun}, ${link.number})""".update.run.void
 
   private def findQuery(shortenedURL: String): ConnectionIO[ShortenedLink] =
@@ -62,15 +65,16 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
     """
       .query[String]
       .option
-      .map(_.fold(FoundLink(shortenedURL))(NotFoundLink(_)))
+      .map(_.fold(NotFoundLink(shortenedURL))(FoundLink(_)))
 
 object NameGenerator:
-  def shorten(input: String): Kleisli[IO, DatabaseOps, RandomLink] =
+  def shorten(input: String): Kleisli[IO, DatabaseOps, Link] =
     Kleisli: db =>
       for
         randomName <- generateName(db)
         _ <- db.storeInDatabase(input, randomName)
-      yield (randomName)
+        outputLink = Link(db.rootURL ++ randomName.toString())
+      yield (outputLink)
 
   private def linesFromFile(path: String): IO[List[String]] =
     fs2.io.file
