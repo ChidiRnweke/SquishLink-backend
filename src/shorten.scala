@@ -1,15 +1,13 @@
 package Shorten
-import Shorten.Database.storeInDatabase
-import Shorten.Database.validateUniqueness
+import Shorten.Database.{validateUniqueness, storeInDatabase}
 import Shorten.NameGenerator.generateName
 import cats.Applicative
-import cats.data.OptionT
 import cats.effect._
-import cats.effect.std.Env
-import cats.effect.std.Random
+import cats.effect.std.{Random, Env}
 import doobie._
 import doobie.implicits._
 import fs2.Stream
+import cats.syntax.all._
 
 import java.io.File
 
@@ -45,8 +43,8 @@ object NameGenerator:
     val positiveNumber = Math.abs(number)
     RandomLink(adjective, noun, positiveNumber)
 
-  private val adjectivesList = linesFromFile("data/adjectives.txt")
-  private val nounsList = linesFromFile("data/nouns.txt")
+  private val adjectivesList = linesFromFile("src/data/adjectives.txt")
+  private val nounsList = linesFromFile("src/data/animals.txt")
 
   private def generateRandomName: IO[RandomLink] =
     for
@@ -67,9 +65,13 @@ object NameGenerator:
 
 object Environment:
   private def getEnv(name: String): IO[String] =
-    val exception = new Exception(s"Environment variable $name was not present")
-    val error = IO.raiseError(exception)
-    OptionT(Env[IO].get(name)).getOrElseF(error)
+    Env[IO]
+      .get(name)
+      .flatMap(
+        _.liftTo[IO](
+          new Exception(s"Environment variable $name was not present")
+        )
+      )
 
   private val userName = getEnv("PG_USER")
   private val password = getEnv("PG_PASSWORD")
@@ -107,7 +109,7 @@ object Database:
   def validateUniqueness(input: RandomLink): IO[Boolean] =
     existenceQuery(input)
 
-  def insertQuery(
+  private def insertQuery(
       original: String,
       url: String,
       link: RandomLink
@@ -125,4 +127,12 @@ object Database:
       _ <- insertQuery(original, url, link).transact(xa)
     yield ()
 
-  def findInDatabase(shortenedURL: String): IO[String] = ???
+  private def findQuery(shortenedURL: String): ConnectionIO[Option[InputLink]] =
+    sql"""select original_url 
+    from links where url = $shortenedURL
+    """.query[InputLink].option
+
+  def findInDatabase(shortenedURL: String): IO[InputLink] =
+    val res = transactor.flatMap(xa => findQuery(shortenedURL).transact(xa))
+    val exception = Exception("Database error occurred while finding record")
+    res.map(_.toRight(exception)).rethrow
