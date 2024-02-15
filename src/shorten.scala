@@ -1,6 +1,4 @@
 package Shorten
-import Shorten.Database.{validateUniqueness, storeInDatabase}
-import Shorten.NameGenerator.generateName
 import cats.Applicative
 import cats.effect._
 import cats.effect.std.{Random, Env}
@@ -19,13 +17,14 @@ case class RandomLink(
   override def toString(): String = s"$adjective$noun$number"
 case class InputLink(link: String)
 
-def shorten(input: InputLink): IO[RandomLink] =
-  for
-    randomName <- generateName
-    _ <- storeInDatabase(input.link, randomName)
-  yield (randomName)
-
 object NameGenerator:
+  import Shorten.Database.{validateUniqueness, storeInDatabase}
+  def shorten(input: InputLink): IO[RandomLink] =
+    for
+      randomName <- generateName
+      _ <- storeInDatabase(input.link, randomName)
+    yield (randomName)
+
   private def linesFromFile(path: String): IO[List[String]] =
     fs2.io.file
       .Files[IO]
@@ -56,11 +55,11 @@ object NameGenerator:
       number <- rng.nextInt
     yield constructName(adjective, noun, number)
 
-  def generateName: IO[RandomLink] =
+  private def generateName: IO[RandomLink] =
     for
       suggestion <- generateRandomName
-      unique <- validateUniqueness(suggestion)
-      name <- if (unique) IO.pure(suggestion) else generateName
+      notUnique <- validateUniqueness(suggestion)
+      name <- if (notUnique) IO.pure(suggestion) else generateName
     yield (name)
 
 object Environment:
@@ -73,16 +72,22 @@ object Environment:
         )
       )
 
-  private val userName = getEnv("PG_USER")
-  private val password = getEnv("PG_PASSWORD")
-  private val url = getEnv("PG_URL")
+  private val userName = getEnv("POSTGRES_USER")
+  private val password = getEnv("POSTGRES_PASSWORD")
+  private val DBName = getEnv("POSTGRES_DB")
+  private val port = getEnv("POSTGRES_PORT")
+  private val host = getEnv("POSTGRES_HOST")
+
   val rootURL = getEnv("ROOT_URL")
 
   private def makeTransactor(
       userName: String,
       password: String,
-      url: String
+      host: String,
+      port: String,
+      DBName: String
   ): Transactor[IO] =
+    val url = s"jdbc:postgresql://$host:$port/$DBName"
     Transactor.fromDriverManager[IO](
       driver = "org.postgresql.Driver",
       url = url,
@@ -90,7 +95,8 @@ object Environment:
       password = password,
       None
     )
-  val transactor = Applicative[IO].map3(userName, password, url)(makeTransactor)
+  val transactor =
+    Applicative[IO].map5(userName, password, host, port, DBName)(makeTransactor)
 
 object Database:
   import Environment.{transactor, rootURL}
@@ -127,12 +133,10 @@ object Database:
       _ <- insertQuery(original, url, link).transact(xa)
     yield ()
 
-  private def findQuery(shortenedURL: String): ConnectionIO[Option[InputLink]] =
+  private def findQuery(shortenedURL: String): ConnectionIO[InputLink] =
     sql"""select original_url 
     from links where url = $shortenedURL
-    """.query[InputLink].option
+    """.query[InputLink].unique
 
   def findInDatabase(shortenedURL: String): IO[InputLink] =
-    val res = transactor.flatMap(xa => findQuery(shortenedURL).transact(xa))
-    val exception = Exception("Database error occurred while finding record")
-    res.map(_.toRight(exception)).rethrow
+    transactor.flatMap(xa => findQuery(shortenedURL).transact(xa))

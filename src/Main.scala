@@ -3,7 +3,6 @@ import LinkService.generateNameResponse
 import Shorten.Database.findInDatabase
 import Shorten.InputLink
 import Shorten.RandomLink
-import Shorten.shorten
 import cats.data.EitherT
 import cats.effect._
 import com.comcast.ip4s._
@@ -22,6 +21,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import org.typelevel.log4cats.syntax._
 import org.http4s.server.middleware.ErrorAction
+import Shorten.NameGenerator.shorten
 
 object Main extends IOApp:
   import LinkService.linkShortenService
