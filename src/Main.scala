@@ -44,7 +44,7 @@ case class LinkService(dbOps: DatabaseOps):
   def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
     dbOps.findInDatabase(shortenedURL).flatMap { res =>
       res match
-        case FoundLink(link)   => Ok(FoundLink(link).asJson)
+        case FoundLink(link)   => PermanentRedirect(Uri.unsafeFromString(link))
         case NotFoundLink(err) => NotFound(NotFoundLink(err).asJson)
     }
 

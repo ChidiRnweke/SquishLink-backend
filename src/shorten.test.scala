@@ -74,7 +74,7 @@ class IntegrationSuite extends CatsEffectSuite:
         case ShortenedLink.NotFoundLink(notFound) => notFound
     yield assertEquals(input, output)
 
-  test("Shortening a link and then retrieving it returns the original link"):
+  test("Shortening a link and then retrieving it results in a redirect"):
     val body = Link("www.example.com")
     val request: Request[IO] =
       Request(method = Method.POST, uri = uri"/squish")
@@ -84,8 +84,8 @@ class IntegrationSuite extends CatsEffectSuite:
       resp <- client.expect[Link](request)
       uri = Uri
         .unsafeFromString(resp.link.trim())
-      original <- client.expect[Link](uri)
-    yield assertEquals(body.link, original.link)
+      original <- client.statusFromUri(uri)
+    yield assertEquals(Status.PermanentRedirect, original)
 
   test("Visiting a link that wasn't shortened results in a 404"):
 
