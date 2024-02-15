@@ -19,6 +19,7 @@ RUN scala-cli --power package . -o app --assembly
 
 FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache bash
-COPY --from=scala-app-builder /app/app /app/app
+COPY --from=scala-app-builder /app/app /app/src/app
+COPY --from=scala-app-builder /app/data /app/src/data
 WORKDIR /app
-CMD ["./app"]
+CMD ["./src/app"]
