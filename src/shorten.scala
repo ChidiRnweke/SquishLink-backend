@@ -1,5 +1,4 @@
 package Shorten
-import cats.Applicative
 import cats.effect._
 import cats.effect.std.{Random, Env}
 import doobie._
@@ -8,22 +7,70 @@ import fs2.Stream
 import cats.syntax.all._
 
 import java.io.File
+import cats.data.Kleisli
 
-case class RandomLink(
-    adjective: String,
-    noun: String,
-    number: Int
-):
+case class RandomLink(adjective: String, noun: String, number: Int):
   override def toString(): String = s"$adjective$noun$number"
-case class InputLink(link: String)
+
+enum ShortenedLink:
+  case FoundLink(val original: String)
+  case NotFoundLink(val notFound: String)
+
+trait DatabaseOps:
+  def validateUniqueness(input: RandomLink): IO[Boolean]
+  def storeInDatabase(original: String, link: RandomLink): IO[Unit]
+  def findInDatabase(shortenedURL: String): IO[ShortenedLink]
+
+case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
+    extends DatabaseOps:
+  import ShortenedLink._
+
+  def storeInDatabase(original: String, link: RandomLink): IO[Unit] =
+    insertQuery(original, rootURL, link).transact(xa)
+
+  def findInDatabase(shortenedURL: String): IO[ShortenedLink] =
+    findQuery(shortenedURL).transact(xa)
+
+  def validateUniqueness(input: RandomLink): IO[Boolean] =
+    existenceQuery(input)
+
+  private def existenceQuery(link: RandomLink): IO[Boolean] =
+    val query =
+      sql"""
+    select not exists (
+      select 1
+      from links 
+      where number = ${link.number}
+      and adjective = ${link.adjective}  
+      and noun = ${link.noun})""".query[Boolean].unique
+    query.transact(xa)
+
+  private def insertQuery(
+      original: String,
+      url: String,
+      link: RandomLink
+  ): ConnectionIO[Unit] =
+    val fullURL = url + link.toString()
+    sql"""
+      insert into links (original_url, url, adjective, noun, number)
+      values ($original, $fullURL, ${link.adjective}, 
+      ${link.noun}, ${link.number})""".update.run.void
+
+  private def findQuery(shortenedURL: String): ConnectionIO[ShortenedLink] =
+    sql"""select original_url 
+    from links where url = $shortenedURL
+    """
+      .query[String]
+      .option
+      .map(_.fold(FoundLink(shortenedURL))(NotFoundLink(_)))
 
 object NameGenerator:
-  import Shorten.Database.{validateUniqueness, storeInDatabase}
-  def shorten(input: InputLink): IO[RandomLink] =
-    for
-      randomName <- generateName
-      _ <- storeInDatabase(input.link, randomName)
-    yield (randomName)
+  def shorten(input: String): Kleisli[IO, DatabaseOps, RandomLink] =
+    Kleisli: db =>
+      for
+        randomName <- generateName(db)
+        _ <- db.storeInDatabase(input, randomName)
+      yield (randomName)
 
   private def linesFromFile(path: String): IO[List[String]] =
     fs2.io.file
@@ -52,91 +99,16 @@ object NameGenerator:
       nouns <- nounsList
       noun <- rng.elementOf(nouns)
       adjective <- rng.elementOf(adjectives)
-      number <- rng.nextInt
+      number <- rng.nextIntBounded(100)
     yield constructName(adjective, noun, number)
 
-  private def generateName: IO[RandomLink] =
-    for
-      suggestion <- generateRandomName
-      notUnique <- validateUniqueness(suggestion)
-      name <- if (notUnique) IO.pure(suggestion) else generateName
-    yield (name)
-
-object Environment:
-  private def getEnv(name: String): IO[String] =
-    Env[IO]
-      .get(name)
-      .flatMap(
-        _.liftTo[IO](
-          new Exception(s"Environment variable $name was not present")
-        )
-      )
-
-  private val userName = getEnv("POSTGRES_USER")
-  private val password = getEnv("POSTGRES_PASSWORD")
-  private val DBName = getEnv("POSTGRES_DB")
-  private val port = getEnv("POSTGRES_PORT")
-  private val host = getEnv("POSTGRES_HOST")
-
-  val rootURL = getEnv("ROOT_URL")
-
-  private def makeTransactor(
-      userName: String,
-      password: String,
-      host: String,
-      port: String,
-      DBName: String
-  ): Transactor[IO] =
-    val url = s"jdbc:postgresql://$host:$port/$DBName"
-    Transactor.fromDriverManager[IO](
-      driver = "org.postgresql.Driver",
-      url = url,
-      user = userName,
-      password = password,
-      None
-    )
-  val transactor =
-    Applicative[IO].map5(userName, password, host, port, DBName)(makeTransactor)
-
-object Database:
-  import Environment.{transactor, rootURL}
-
-  private def existenceQuery(link: RandomLink): IO[Boolean] =
-    val query =
-      sql"""
-    select exists (
-      select 1
-      from links 
-      where number = ${link.number}
-      and adjective = ${link.adjective}  
-      and noun = ${link.noun})""".query[Boolean].unique
-    transactor.flatMap(query.transact(_))
-
-  def validateUniqueness(input: RandomLink): IO[Boolean] =
-    existenceQuery(input)
-
-  private def insertQuery(
-      original: String,
-      url: String,
-      link: RandomLink
-  ): ConnectionIO[Int] =
-    val fullURL = url + link.toString()
-    sql"""
-      insert into links (original_url, url, adjective, noun, number)
-      values ($original, $fullURL, ${link.adjective}, 
-      ${link.noun}, ${link.number})""".update.run
-
-  def storeInDatabase(original: String, link: RandomLink): IO[Unit] =
-    for
-      xa <- transactor
-      url <- rootURL
-      _ <- insertQuery(original, url, link).transact(xa)
-    yield ()
-
-  private def findQuery(shortenedURL: String): ConnectionIO[InputLink] =
-    sql"""select original_url 
-    from links where url = $shortenedURL
-    """.query[InputLink].unique
-
-  def findInDatabase(shortenedURL: String): IO[InputLink] =
-    transactor.flatMap(xa => findQuery(shortenedURL).transact(xa))
+  private def generateName(db: DatabaseOps, tries: Int = 10): IO[RandomLink] =
+    if (tries > 0)
+      for
+        suggestion <- generateRandomName
+        notUnique <- db.validateUniqueness(suggestion)
+        name <-
+          if (notUnique) IO.pure(suggestion) else generateName(db, tries - 1)
+      yield (name)
+    else
+      IO.raiseError(Exception("Did not find a unique name within 10 sequences"))
