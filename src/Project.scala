@@ -10,5 +10,6 @@
 //> using dep "org.typelevel::log4cats-slf4j::2.6.0"
 //> using dep "io.circe::circe-generic::0.14.6"
 //> using dep "ch.qos.logback:logback-classic:1.4.14"
+//> using dep "org.tpolecat::doobie-hikari::1.0.0-RC4"
 //> using test.dep "org.typelevel::munit-cats-effect-3::1.0.7"
 //> using resourceDir ./resources

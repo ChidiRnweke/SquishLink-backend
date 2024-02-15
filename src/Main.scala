@@ -12,6 +12,8 @@ import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder._
+import org.http4s.headers.Location
+
 import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.ember.server.EmberServerBuilder
@@ -19,6 +21,7 @@ import org.http4s.implicits._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import org.typelevel.log4cats.syntax._
+import Config.AppResources.makeHikariTransactor
 
 object Main extends IOApp:
   import ExceptionService.errorHandler
@@ -26,17 +29,20 @@ object Main extends IOApp:
 
   def run(args: List[String]): IO[ExitCode] =
     Environment.loadConfig.flatMap { config =>
-      val transactor = makeTransactor(config.dbConfig)
-      val dbOps = DoobieDatabaseOps(transactor, config.rootUrl)
-      val linkService = LinkService(dbOps = dbOps)
-      EmberServerBuilder
-        .default[IO]
-        .withErrorHandler(errorHandler)
-        .withPort(port"8080")
-        .withHttpApp(linkService.linkShortenService.orNotFound)
-        .build
-        .use(_ => IO.never)
-        .as(ExitCode.Success)
+      val transactor = makeHikariTransactor(config.dbConfig)
+      transactor.use(xa =>
+        val dbOps = DoobieDatabaseOps(xa, config.rootUrl)
+        val linkService = LinkService(dbOps = dbOps)
+        EmberServerBuilder
+          .default[IO]
+          .withErrorHandler(errorHandler)
+          .withHost(ipv4"0.0.0.0")
+          .withPort(port"8080")
+          .withHttpApp(linkService.linkShortenService.orNotFound)
+          .build
+          .use(_ => IO.never)
+          .as(ExitCode.Success)
+      )
     }
 
 case class LinkService(dbOps: DatabaseOps):
@@ -44,7 +50,8 @@ case class LinkService(dbOps: DatabaseOps):
   def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
     dbOps.findInDatabase(shortenedURL).flatMap { res =>
       res match
-        case FoundLink(link)   => PermanentRedirect(Uri.unsafeFromString(link))
+        case FoundLink(link) =>
+          PermanentRedirect(Location(Uri.unsafeFromString(link)))
         case NotFoundLink(err) => NotFound(NotFoundLink(err).asJson)
     }
 
