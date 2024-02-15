@@ -8,4 +8,5 @@
 //> using dep "org.http4s::http4s-circe::0.23.25"
 //> using dep "io.circe::circe-literal::0.14.6"
 //> using dep "org.typelevel::log4cats-slf4j::2.6.0"
+//> using dep "io.circe::circe-generic::0.14.6"
 //> using resourceDir ./resources
