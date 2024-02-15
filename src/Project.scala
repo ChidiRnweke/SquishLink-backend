@@ -9,4 +9,5 @@
 //> using dep "io.circe::circe-literal::0.14.6"
 //> using dep "org.typelevel::log4cats-slf4j::2.6.0"
 //> using dep "io.circe::circe-generic::0.14.6"
+//> using dep "ch.qos.logback:logback-classic:1.4.14"
 //> using resourceDir ./resources
