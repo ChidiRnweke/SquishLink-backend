@@ -2,6 +2,8 @@ version: '3.8'
 services:
   postgres:
     image: postgres
+    networks:
+      - app_network
     env_file:
       - config/.secrets.env
     volumes:
