@@ -87,8 +87,8 @@ object NameGenerator:
       case str if str.isEmpty() => InvalidInputLink(str)
       case s"http://$rest"      => ValidInputLink(s"http://$rest")
       case s"https://$rest"     => ValidInputLink(s"https://$rest")
-      case s"www.$rest"         => ValidInputLink(s"http://$rest")
-      case rest                 => ValidInputLink(s"http://$rest")
+      case s"www.$rest"         => ValidInputLink(s"https://$rest")
+      case rest                 => ValidInputLink(s"https://$rest")
 
   private def linesFromFile(path: String): IO[List[String]] =
     fs2.io.file

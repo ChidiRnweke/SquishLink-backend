@@ -67,7 +67,7 @@ case class LinkService(dbOps: DatabaseOps):
   private def shortenResponse(originalLink: String): IO[Response[IO]] =
     validateInput(originalLink) match
       case ValidInputLink(link) =>
-        shorten(originalLink)(dbOps).flatMap(link => Ok(link.asJson))
+        shorten(link)(dbOps).flatMap(link => Ok(link.asJson))
       case err: InvalidInputLink => BadRequest(err.asJson)
 
 object ExceptionService:
