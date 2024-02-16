@@ -13,6 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Create .secrets.env file
+        run: |
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> config/.secrets.env
+            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> config/.secrets.env
+            echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> config/.secrets.env
+            echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> config/.secrets.env
+            echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> config/.secrets.env
+            echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> config/.secrets.env
+        shell: bash
+
       - name: Build Docker image with Compose
         run: docker compose build
 
@@ -38,17 +48,19 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Secure copy env file to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: config/.secrets.env
+          target: ~/SquishLink/config/.secrets.env
+
       - name: Deploy to server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
             cd ~/SquishLink
-
-            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> config/.secrets.env
-            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> config/.secrets.env
-            echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> config/.secrets.env
-            echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> config/.secrets.env
-            echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> config/.secrets.env
-            echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> config/.secrets.env
 
             git pull origin deployment_test
             docker compose pull            
