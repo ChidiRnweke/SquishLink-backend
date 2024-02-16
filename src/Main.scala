@@ -50,7 +50,7 @@ case class LinkService(dbOps: DatabaseOps):
 
   val linkShortenService = HttpRoutes.of[IO]:
     case GET -> Root / "s" / name => generateLinkResponse(name)
-    case req @ POST -> Root / "s/" =>
+    case req @ POST -> Root / "s" =>
       req.as[Link].flatMap(input => shortenResponse(input.link))
 
   private def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
