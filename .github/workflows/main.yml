@@ -52,8 +52,8 @@ jobs:
       - name: Make config folder if it doesn't exist
         run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
+                rm -rf ~/SquishLink
                 mkdir -p ~/SquishLink/config
-                rm -f ~/SquishLink/config/.secrets.env 
                 touch ~/SquishLink/config/.secrets.env
                 echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ~/SquishLink/config/.secrets.env
                 echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ~/SquishLink/config/.secrets.env
@@ -68,7 +68,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
             cd ~/SquishLink
 
-            git pull origin deployment_test
+            git clone -b https://github.com/ChidiRnweke/squishLink-backend-FP deployment_test
             docker compose pull            
             docker compose up -d
 
