@@ -8,7 +8,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  SquishLinkApp:
+  squish_link_app:
     build: .
     env_file:
       - config/.secrets.env
