@@ -49,7 +49,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Make config folder if it doesn't exist
+      - name: Deploy to server
         run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
                 rm -rf ~/squishLink-backend-FP
@@ -63,14 +63,9 @@ jobs:
                 echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
                 echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
                 echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
-                echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env     
+                echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env   
+
+                docker compose pull            
+                docker compose -f compose.yml  up -d  
             EOF
 
-      - name: Deploy to server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
-
-            docker compose pull            
-            docker compose -f ./compose.yml  up -d
-
-          EOF
