@@ -18,6 +18,10 @@ enum ShortenedLink:
   case FoundLink(val link: String)
   case NotFoundLink(val notFound: String)
 
+enum InputLink:
+  case ValidInputLink(val link: String)
+  case InvalidInputLink(val link: String)
+
 trait DatabaseOps:
   val rootURL: String
   def validateUniqueness(input: RandomLink): IO[Boolean]
@@ -68,6 +72,8 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
       .map(_.fold(NotFoundLink(shortenedURL))(FoundLink(_)))
 
 object NameGenerator:
+  import InputLink._
+
   def shorten(input: String): Kleisli[IO, DatabaseOps, Link] =
     Kleisli: db =>
       for
@@ -75,6 +81,14 @@ object NameGenerator:
         _ <- db.storeInDatabase(input, randomName)
         outputLink = Link(db.rootURL ++ randomName.toString())
       yield (outputLink)
+
+  def validateInput(input: String): InputLink =
+    input match
+      case str if str.isEmpty() => InvalidInputLink(str)
+      case s"http://$rest"      => ValidInputLink(s"http://$rest")
+      case s"https://$rest"     => ValidInputLink(s"https://$rest")
+      case s"www.$rest"         => ValidInputLink(s"http://$rest")
+      case rest                 => ValidInputLink(s"http://$rest")
 
   private def linesFromFile(path: String): IO[List[String]] =
     fs2.io.file

@@ -22,6 +22,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import org.typelevel.log4cats.syntax._
 import Config.AppResources.makeHikariTransactor
+import Shorten.NameGenerator.validateInput
 
 object Main extends IOApp:
   import ExceptionService.errorHandler
@@ -47,9 +48,14 @@ object Main extends IOApp:
 
 case class LinkService(dbOps: DatabaseOps):
   import ShortenedLink._
+  import InputLink._
 
   val linkShortenService = HttpRoutes.of[IO]:
-    case GET -> Root / "s" / name => generateLinkResponse(name)
+    case GET -> Root / "s" / name =>
+      validateInput(name) match
+        case ValidInputLink(link)  => generateLinkResponse(link)
+        case err: InvalidInputLink => BadRequest(err.asJson)
+
     case req @ POST -> Root / "s" =>
       req.as[Link].flatMap(input => shortenResponse(input.link))
 
@@ -58,6 +64,7 @@ case class LinkService(dbOps: DatabaseOps):
       .findInDatabase(shortenedURL)
       .flatMap:
         case FoundLink(link) =>
+          println(link)
           PermanentRedirect(Location(Uri.unsafeFromString(link)))
         case NotFoundLink(err) => NotFound(NotFoundLink(err).asJson)
 
