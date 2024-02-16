@@ -15,13 +15,13 @@ jobs:
 
       - name: Create .secrets.env file
         run: |
-            mkdir -p config && touch config/.secrets.env
-            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> config/.secrets.env
-            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> config/.secrets.env
-            echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> config/.secrets.env
-            echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> config/.secrets.env
-            echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> config/.secrets.env
-            echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> config/.secrets.env
+            mkdir -p config && touch ./config/.secrets.env
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./config/.secrets.env
+            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./config/.secrets.env
+            echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
+            echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
+            echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
+            echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env
         shell: bash
 
       - name: Build Docker image with Compose
@@ -61,7 +61,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: config/.secrets.env
+          source: ./config/.secrets.env
           target: ~/SquishLink/config/.secrets.env
 
       - name: Deploy to server
