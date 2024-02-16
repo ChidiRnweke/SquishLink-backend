@@ -2,8 +2,6 @@ version: '3.8'
 services:
   postgres:
     image: postgres
-    networks:
-      - app_network
     env_file:
       - config/.secrets.env
     volumes:
@@ -19,11 +17,10 @@ services:
       - "8080:8080" 
     depends_on:
       - postgres 
-    networks:
-      - app_network
 volumes:
   postgres-data:
 
 networks:
-  app_network:
-    driver: bridge
+  default:
+    external:
+      name: app_network
