@@ -8,7 +8,9 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  SquishLinkApp:
+  squish_link_app:
+    container_name: squish_link_app
+    image: chidinweke/squish_link_app:latest
     build: .
     env_file:
       - config/.secrets.env
@@ -18,3 +20,8 @@ services:
       - postgres 
 volumes:
   postgres-data:
+
+networks:
+  default:
+      name: app_network 
+      external: true
