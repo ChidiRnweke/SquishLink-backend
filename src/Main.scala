@@ -47,31 +47,29 @@ object Main extends IOApp:
 
 case class LinkService(dbOps: DatabaseOps):
   import ShortenedLink._
-  def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
-    dbOps.findInDatabase(shortenedURL).flatMap { res =>
-      res match
+
+  val linkShortenService = HttpRoutes.of[IO]:
+    case GET -> Root / "s" / name => generateLinkResponse(name)
+    case req @ POST -> Root / "s" =>
+      req.as[Link].flatMap(input => shortenResponse(input.link))
+
+  private def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
+    dbOps
+      .findInDatabase(shortenedURL)
+      .flatMap:
         case FoundLink(link) =>
           PermanentRedirect(Location(Uri.unsafeFromString(link)))
         case NotFoundLink(err) => NotFound(NotFoundLink(err).asJson)
-    }
 
-  def shortenResponse(originalLink: String): IO[Response[IO]] =
+  private def shortenResponse(originalLink: String): IO[Response[IO]] =
     shorten(originalLink)(dbOps).flatMap(link => Ok(link.asJson))
 
-  val linkShortenService = HttpRoutes.of[IO]:
-    case GET -> Root / "squish" / name => generateLinkResponse(name)
-    case req @ POST -> Root / "squish" =>
-      req.as[Link].flatMap(input => shortenResponse(input.link))
-
-  extension (link: RandomLink)
-    def asJson = json"""{"link": ${link.toString()}}"""
-
 object ExceptionService:
-  val logger = Slf4jLogger.create[IO]
-  case class InfraError(error: String)
-  val errorMsg = "An internal server error occurred."
+  private val logger = Slf4jLogger.create[IO]
+  private case class InfraError(error: String)
+  private val errorMsg = "An internal server error occurred."
   val errorHandler: PartialFunction[Throwable, IO[Response[IO]]] =
-    case e: Throwable =>
+    case e =>
       for
         log <- logger
         _ <- log.error(e)(e.getMessage())
