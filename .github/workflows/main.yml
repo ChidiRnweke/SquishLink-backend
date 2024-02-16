@@ -53,16 +53,13 @@ jobs:
         run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
                 mkdir -p ~/SquishLink/config
+                echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ~/SquishLink/config
+                echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ~/SquishLink/config
+                echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ~/SquishLink/config
+                echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ~/SquishLink/config
+                echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ~/SquishLink/config
+                echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ~/SquishLink/config   
             EOF
-
-      - name: Secure copy env file to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: ./config/.secrets.env
-          target: ~/SquishLink/config/.secrets.env
 
       - name: Deploy to server
         run: |
