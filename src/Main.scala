@@ -51,10 +51,7 @@ case class LinkService(dbOps: DatabaseOps):
   import InputLink._
 
   val linkShortenService = HttpRoutes.of[IO]:
-    case GET -> Root / "s" / name =>
-      validateInput(name) match
-        case ValidInputLink(link)  => generateLinkResponse(link)
-        case err: InvalidInputLink => BadRequest(err.asJson)
+    case GET -> Root / "s" / name => generateLinkResponse(name)
 
     case req @ POST -> Root / "s" =>
       req.as[Link].flatMap(input => shortenResponse(input.link))
@@ -64,12 +61,14 @@ case class LinkService(dbOps: DatabaseOps):
       .findInDatabase(shortenedURL)
       .flatMap:
         case FoundLink(link) =>
-          println(link)
           PermanentRedirect(Location(Uri.unsafeFromString(link)))
         case NotFoundLink(err) => NotFound(NotFoundLink(err).asJson)
 
   private def shortenResponse(originalLink: String): IO[Response[IO]] =
-    shorten(originalLink)(dbOps).flatMap(link => Ok(link.asJson))
+    validateInput(originalLink) match
+      case ValidInputLink(link) =>
+        shorten(originalLink)(dbOps).flatMap(link => Ok(link.asJson))
+      case err: InvalidInputLink => BadRequest(err.asJson)
 
 object ExceptionService:
   private val logger = Slf4jLogger.create[IO]
