@@ -68,7 +68,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
             cd ~/SquishLink
 
-            git clone -b https://github.com/ChidiRnweke/squishLink-backend-FP deployment_test
+            git clone -b deployment_test https://github.com/ChidiRnweke/squishLink-backend-FP 
             docker compose pull            
             docker compose up -d
 
