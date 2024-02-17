@@ -16,7 +16,7 @@ case class RandomLink(adjective: String, noun: String, number: Int):
 
 enum ShortenedLink:
   case FoundLink(link: String)
-  case NotFoundLink(notFound: String)
+  case NotFoundLink(link: String)
 
 enum InputLink:
   case ValidInputLink(link: String)

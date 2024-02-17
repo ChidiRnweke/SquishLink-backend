@@ -2,7 +2,7 @@ package App
 import CleanUp._
 import Config.AppResources._
 import Shorten.NameGenerator._
-import Shorten.*
+import Shorten._
 import Shorten._
 import cats._
 import cats.data._
