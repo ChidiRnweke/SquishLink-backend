@@ -9,10 +9,11 @@ import doobie.implicits._
 import doobie.hikari._
 import com.zaxxer.hikari.HikariConfig
 import cats.effect.std.Env
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 case class DbConfig(driver: String, url: String, user: String, password: String)
-case class AppConfig(dbConfig: DbConfig, rootUrl: String)
-
+case class AppConfig(dbConfig: DbConfig, rootUrl: String, logger: Logger[IO])
 object Environment:
   private def getEnv(name: String): IO[String] =
     val exception = Exception(s"Environment variable $name was not present")
@@ -33,9 +34,10 @@ object Environment:
     DbName <- databaseName
     host <- pgHost
     port <- pgPort
+    logger <- Slf4jLogger.create[IO]
     url = s"jdbc:postgresql://$host:$port/$DbName"
     db = DbConfig(driver, url, user, password)
-  yield AppConfig(db, rootUrl)
+  yield AppConfig(db, rootUrl, logger)
 
 object AppResources:
   def makeHikariTransactor(

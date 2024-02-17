@@ -12,7 +12,7 @@ import org.http4s.client.Client
 import org.http4s.implicits._
 import org.http4s._
 import cats.syntax.all._
-
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 class MockDatabaseOps(unique: Boolean = true) extends Repository:
   val rootURL = "localhost"
   def validateUniqueness(input: RandomLink): IO[Boolean] = IO.pure(unique)
@@ -54,7 +54,8 @@ class IntegrationSuite extends CatsEffectSuite:
   )
   private val transactor = makeTransactor(testConfig)
   val db = DoobieRepository(transactor, "http://localhost/s/")
-  val httpApp = App.LinkService(db).linkShortenService.orNotFound
+  val logger = Slf4jLogger.getLogger[IO]
+  val httpApp = App.LinkService(db, logger).linkShortenService.orNotFound
   val client: Client[IO] = Client.fromHttpApp(httpApp)
 
   test("Generating a name twice in a row results in different names"):
