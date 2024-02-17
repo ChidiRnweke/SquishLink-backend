@@ -4,14 +4,14 @@ import cats.data._
 import cats.effect.IO
 import cats.syntax.all._
 import doobie._
-import doobie.postgres.implicits._
-import doobie.postgres._
-import concurrent.duration._
-import java.time.ZonedDateTime
-import java.time._
 import doobie.implicits._
+import doobie.postgres.implicits._
 import fs2.Stream
 import org.typelevel.log4cats.Logger
+
+import java.time._
+
+import concurrent.duration._
 
 object CleanUp:
   private val timeThreshold = IO.apply(OffsetDateTime.now().minusDays(7))

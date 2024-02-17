@@ -3,13 +3,13 @@ package Config
 import cats._
 import cats.data._
 import cats.effect._
-import cats.implicits._
-import doobie._
-import doobie.implicits._
-import doobie.hikari._
-import com.zaxxer.hikari.HikariConfig
 import cats.effect.std.Env
-import org.typelevel.log4cats.Logger
+import cats.implicits._
+import com.zaxxer.hikari.HikariConfig
+import doobie._
+import doobie.hikari._
+import doobie.implicits._
+import org.typelevel.log4cats._
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 case class DbConfig(driver: String, url: String, user: String, password: String)
