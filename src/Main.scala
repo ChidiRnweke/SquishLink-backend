@@ -10,10 +10,11 @@ import io.circe.generic.auto._
 import io.circe.literal._
 import io.circe.syntax._
 import org.http4s._
+import concurrent.duration.DurationInt
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.headers.Location
-
+import org.http4s.server.middleware.Throttle
 import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.ember.server.EmberServerBuilder
@@ -28,25 +29,27 @@ object Main extends IOApp:
   import ExceptionService.errorHandler
   import Config._
 
-  def run(args: List[String]): IO[ExitCode] =
-    Environment.loadConfig.flatMap { config =>
-      val transactor = makeHikariTransactor(config.dbConfig)
-      transactor.use(xa =>
-        val dbOps = DoobieDatabaseOps(xa, config.rootUrl)
-        val linkService = LinkService(dbOps = dbOps)
-        EmberServerBuilder
-          .default[IO]
-          .withErrorHandler(errorHandler)
-          .withHost(ipv4"0.0.0.0")
-          .withPort(port"8080")
-          .withHttpApp(linkService.linkShortenService.orNotFound)
-          .build
-          .use(_ => IO.never)
-          .as(ExitCode.Success)
-      )
-    }
+  def throttleService(service: HttpApp[IO]): IO[HttpApp[IO]] =
+    Throttle.httpApp[IO](amount = 10, per = 1.second)(service)
 
-case class LinkService(dbOps: DatabaseOps):
+  def run(args: List[String]): IO[ExitCode] =
+    Environment.loadConfig.flatMap: config =>
+      val transactor = makeHikariTransactor(config.dbConfig)
+      transactor.use: xa =>
+        val dbOps = DoobieRepository(xa, config.rootUrl)
+        val shortener = LinkService(dbOps = dbOps).linkShortenService
+        throttleService(shortener.orNotFound).flatMap: service =>
+          EmberServerBuilder
+            .default[IO]
+            .withErrorHandler(errorHandler)
+            .withHost(ipv4"0.0.0.0")
+            .withPort(port"8080")
+            .withHttpApp(service)
+            .build
+            .use(_ => IO.never)
+            .as(ExitCode.Success)
+
+case class LinkService(dbOps: Repository):
   import ShortenedLink._
   import InputLink._
 

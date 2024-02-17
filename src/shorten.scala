@@ -22,14 +22,14 @@ enum InputLink:
   case ValidInputLink(link: String)
   case InvalidInputLink(link: String)
 
-trait DatabaseOps:
+trait Repository:
   val rootURL: String
   def validateUniqueness(input: RandomLink): IO[Boolean]
   def storeInDatabase(original: String, link: RandomLink): IO[Unit]
   def findInDatabase(shortenedURL: String): IO[ShortenedLink]
 
-case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
-    extends DatabaseOps:
+case class DoobieRepository(xa: Transactor[IO], rootURL: String)
+    extends Repository:
   import ShortenedLink._
 
   def storeInDatabase(original: String, link: RandomLink): IO[Unit] =
@@ -71,7 +71,7 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
 object NameGenerator:
   import InputLink._
 
-  def shorten(input: String): Kleisli[IO, DatabaseOps, Link] =
+  def shorten(input: String): Kleisli[IO, Repository, Link] =
     Kleisli: db =>
       for
         randomName <- generateName(db)
@@ -116,7 +116,7 @@ object NameGenerator:
       number <- rng.nextIntBounded(100)
     yield constructName(adjective, noun, number)
 
-  private def generateName(db: DatabaseOps, tries: Int = 10): IO[RandomLink] =
+  private def generateName(db: Repository, tries: Int = 10): IO[RandomLink] =
     val errorMsg = Exception("Did not find a unique name within 10 sequences")
 
     generateRandomName.flatMap: suggestion =>
