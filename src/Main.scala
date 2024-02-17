@@ -24,6 +24,7 @@ import org.http4s.server.middleware.Throttle
 import org.typelevel.log4cats.Logger
 
 import concurrent.duration._
+import org.http4s.headers.`Content-Type`
 
 object Main extends IOApp:
   import ExceptionService.errorHandler
@@ -59,21 +60,39 @@ case class LinkService(dbOps: Repository, logger: Logger[IO]):
   import InputLink._
 
   val linkShortenService = HttpRoutes.of[IO]:
-    case GET -> Root / "s" / name => generateLinkResponse(name)
+    case req @ GET -> Root / "s" / name =>
+      generateLinkResponse(name, req.contentType)
 
     case req @ POST -> Root / "s" =>
       req.as[Link].flatMap(input => shortenResponse(input.link))
 
-  private def generateLinkResponse(shortenedURL: String): IO[Response[IO]] =
-    def errMsg(link: String): String =
-      s"Received request for $link but could not respond."
+  private def generateLinkResponse(
+      shortenedURL: String,
+      contentType: Option[`Content-Type`]
+  ): IO[Response[IO]] =
     dbOps
       .findInDatabase(shortenedURL)
       .flatMap:
         case FoundLink(link) =>
           PermanentRedirect(Location(Uri.unsafeFromString(link)))
-        case NotFoundLink(err) =>
-          logger.error(errMsg(err)) *> NotFound(NotFoundLink(err).asJson)
+
+        case NotFoundLink(link) => handleMissingLink(link, contentType, logger)
+
+  private def handleMissingLink(
+      link: String,
+      content: Option[`Content-Type`],
+      logger: Logger[IO]
+  ): IO[Response[IO]] =
+    val errMsg = s"Received request for $link but could not respond."
+    val redirect =
+      "https://" + dbOps.rootURL.stripSuffix("/s") + "/squish/missing-url/"
+
+    val response = content match
+      case Some(ct) if ct.mediaType.isApplication =>
+        NotFound(NotFoundLink(errMsg).asJson)
+
+      case _ => PermanentRedirect(Location(Uri.unsafeFromString(redirect)))
+    logger.error(errMsg) >> response
 
   private def shortenResponse(originalLink: String): IO[Response[IO]] =
     validateInput(originalLink) match
