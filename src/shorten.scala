@@ -12,15 +12,15 @@ import java.io.File
 
 case class Link(link: String)
 case class RandomLink(adjective: String, noun: String, number: Int):
-  override def toString(): String = s"$adjective$noun$number"
+  override def toString: String = s"$adjective$noun$number"
 
 enum ShortenedLink:
-  case FoundLink(val link: String)
-  case NotFoundLink(val notFound: String)
+  case FoundLink(link: String)
+  case NotFoundLink(notFound: String)
 
 enum InputLink:
-  case ValidInputLink(val link: String)
-  case InvalidInputLink(val link: String)
+  case ValidInputLink(link: String)
+  case InvalidInputLink(link: String)
 
 trait DatabaseOps:
   val rootURL: String
@@ -36,7 +36,7 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
     insertQuery(original, rootURL, link).transact(xa)
 
   def findInDatabase(shortenedURL: String): IO[ShortenedLink] =
-    findQuery(shortenedURL).transact(xa)
+    findQuery(shortenedURL)
 
   def validateUniqueness(input: RandomLink): IO[Boolean] =
     existenceQuery(input)
@@ -57,19 +57,16 @@ case class DoobieDatabaseOps(xa: Transactor[IO], rootURL: String)
       url: String,
       link: RandomLink
   ): ConnectionIO[Unit] =
-    val uri = link.toString()
-    sql"""
-      insert into links (original_url, url, adjective, noun, number)
-      values ($original, ${uri}, ${link.adjective}, 
-      ${link.noun}, ${link.number})""".update.run.void
+    val uri = link.toString
+    sql"""insert into links (original_url, url, adjective, noun, number) values 
+      ($original, ${uri}, ${link.adjective}, ${link.noun}, ${link.number})""".update.run.void
 
-  private def findQuery(shortenedURL: String): ConnectionIO[ShortenedLink] =
-    sql"""select original_url 
-    from links where url = $shortenedURL
-    """
+  private def findQuery(shortenedURL: String): IO[ShortenedLink] =
+    sql"""select original_url from links where url = $shortenedURL"""
       .query[String]
       .option
       .map(_.fold(NotFoundLink(shortenedURL))(FoundLink(_)))
+      .transact(xa)
 
 object NameGenerator:
   import InputLink._
@@ -79,8 +76,7 @@ object NameGenerator:
       for
         randomName <- generateName(db)
         _ <- db.storeInDatabase(input, randomName)
-        outputLink = Link(db.rootURL ++ randomName.toString())
-      yield (outputLink)
+      yield Link(db.rootURL ++ randomName.toString())
 
   def validateInput(input: String): InputLink =
     input match
@@ -121,12 +117,11 @@ object NameGenerator:
     yield constructName(adjective, noun, number)
 
   private def generateName(db: DatabaseOps, tries: Int = 10): IO[RandomLink] =
-    if (tries > 0)
-      for
-        suggestion <- generateRandomName
-        notUnique <- db.validateUniqueness(suggestion)
-        name <-
-          if (notUnique) IO.pure(suggestion) else generateName(db, tries - 1)
-      yield (name)
-    else
-      IO.raiseError(Exception("Did not find a unique name within 10 sequences"))
+    val errorMsg = Exception("Did not find a unique name within 10 sequences")
+
+    generateRandomName.flatMap: suggestion =>
+      db.validateUniqueness(suggestion)
+        .flatMap:
+          case true               => IO.pure(suggestion)
+          case false if tries > 1 => generateName(db, tries - 1)
+          case _                  => IO.raiseError(errorMsg)

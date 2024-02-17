@@ -53,7 +53,7 @@ class IntegrationSuite extends CatsEffectSuite:
     password = "test"
   )
   private val transactor = makeTransactor(testConfig)
-  val db = DoobieDatabaseOps(transactor, "http://localhost/squish/")
+  val db = DoobieDatabaseOps(transactor, "http://localhost/s/")
   val httpApp = App.LinkService(db).linkShortenService.orNotFound
   val client: Client[IO] = Client.fromHttpApp(httpApp)
 
@@ -77,11 +77,12 @@ class IntegrationSuite extends CatsEffectSuite:
   test("Shortening a link and then retrieving it results in a redirect"):
     val body = Link("www.example.com")
     val request: Request[IO] =
-      Request(method = Method.POST, uri = uri"/squish")
+      Request(method = Method.POST, uri = uri"http://localhost/s")
         .withEntity(body)
 
     for
       resp <- client.expect[Link](request)
+
       uri = Uri
         .unsafeFromString(resp.link.trim())
       original <- client.statusFromUri(uri)
