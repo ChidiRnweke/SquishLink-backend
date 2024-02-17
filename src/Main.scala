@@ -84,7 +84,8 @@ case class LinkService(dbOps: Repository, logger: Logger[IO]):
       logger: Logger[IO]
   ): IO[Response[IO]] =
     val errMsg = s"Received request for $link but could not respond."
-    val redirect = dbOps.rootURL.stripSuffix("/s/") + "/squish/missing-url/"
+    val redirect =
+      "https://" + dbOps.rootURL.stripSuffix("/s/") + "/squish/missing-url/"
 
     val response = content match
       case Some(ct) if ct.mediaType.isApplication =>
