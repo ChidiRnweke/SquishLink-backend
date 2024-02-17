@@ -13,7 +13,7 @@ import fs2.Stream
 import org.typelevel.log4cats.Logger
 
 object CleanUp:
-  private val timeThreshold = IO.apply(ZonedDateTime.now().minusDays(7))
+  private val timeThreshold = IO.apply(ZonedDateTime.now().minusDays(1))
   private def logAmountDeleted(deleted: Int, logger: Logger[IO]) =
     logger.info(s"$deleted records deleted from database")
   private def cleanUpQuery(time: ZonedDateTime, xa: Transactor[IO]): IO[Int] =
@@ -26,4 +26,4 @@ object CleanUp:
       .evalMap(n => logAmountDeleted(n, logger))
       .handleErrorWith(e => Stream.eval(logger.error(e.getMessage())))
       .repeat
-      .metered(6.hours)
+      .metered(1.minute)
