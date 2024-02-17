@@ -8,16 +8,17 @@ import doobie.postgres.implicits._
 import doobie.postgres._
 import concurrent.duration._
 import java.time.ZonedDateTime
+import java.time._
 import doobie.implicits._
 import fs2.Stream
 import org.typelevel.log4cats.Logger
 
 object CleanUp:
-  private val timeThreshold = IO.apply(ZonedDateTime.now().minusDays(1))
+  private val timeThreshold = IO.apply(OffsetDateTime.now().minusDays(1))
   private def logAmountDeleted(deleted: Int, logger: Logger[IO]) =
     logger.info(s"$deleted records deleted from database")
-  private def cleanUpQuery(time: ZonedDateTime, xa: Transactor[IO]): IO[Int] =
-    sql"""delete from links where created_at < ${time.toString()}""".update.run
+  private def cleanUpQuery(time: OffsetDateTime, xa: Transactor[IO]): IO[Int] =
+    sql"""delete from links where created_at < $time""".update.run
       .transact(xa)
 
   def initiate(xa: Transactor[IO], logger: Logger[IO]): Stream[IO, Unit] =
