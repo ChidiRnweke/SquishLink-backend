@@ -13,7 +13,7 @@ import org.http4s.implicits._
 import org.http4s._
 import cats.syntax.all._
 
-class MockDatabaseOps(unique: Boolean = true) extends DatabaseOps:
+class MockDatabaseOps(unique: Boolean = true) extends Repository:
   val rootURL = "localhost"
   def validateUniqueness(input: RandomLink): IO[Boolean] = IO.pure(unique)
   def storeInDatabase(original: String, link: RandomLink): IO[Unit] = IO.unit
@@ -53,7 +53,7 @@ class IntegrationSuite extends CatsEffectSuite:
     password = "test"
   )
   private val transactor = makeTransactor(testConfig)
-  val db = DoobieDatabaseOps(transactor, "http://localhost/s/")
+  val db = DoobieRepository(transactor, "http://localhost/s/")
   val httpApp = App.LinkService(db).linkShortenService.orNotFound
   val client: Client[IO] = Client.fromHttpApp(httpApp)
 

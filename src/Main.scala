@@ -3,14 +3,17 @@ import Config.AppResources.makeTransactor
 import Shorten.NameGenerator.shorten
 import Shorten.ShortenedLink
 import Shorten._
+import cats._
+import cats.data._
 import cats.effect._
+import cats.syntax.all._
 import com.comcast.ip4s._
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.literal._
 import io.circe.syntax._
 import org.http4s._
-import concurrent.duration.DurationInt
+import concurrent.duration._
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.headers.Location
@@ -24,6 +27,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import org.typelevel.log4cats.syntax._
 import Config.AppResources.makeHikariTransactor
 import Shorten.NameGenerator.validateInput
+import CleanUp._
 
 object Main extends IOApp:
   import ExceptionService.errorHandler
@@ -36,9 +40,10 @@ object Main extends IOApp:
     Environment.loadConfig.flatMap: config =>
       val transactor = makeHikariTransactor(config.dbConfig)
       transactor.use: xa =>
+        val cleanUp = CleanUp.initiate(xa).compile.drain
         val dbOps = DoobieRepository(xa, config.rootUrl)
         val shortener = LinkService(dbOps = dbOps).linkShortenService
-        throttleService(shortener.orNotFound).flatMap: service =>
+        val app = throttleService(shortener.orNotFound).flatMap: service =>
           EmberServerBuilder
             .default[IO]
             .withErrorHandler(errorHandler)
@@ -47,7 +52,7 @@ object Main extends IOApp:
             .withHttpApp(service)
             .build
             .use(_ => IO.never)
-            .as(ExitCode.Success)
+        (app, cleanUp).parTupled.as(ExitCode.Success)
 
 case class LinkService(dbOps: Repository):
   import ShortenedLink._
