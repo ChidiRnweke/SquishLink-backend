@@ -52,7 +52,6 @@ jobs:
       - name: Deploy to server
         run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
-                rm -rf ~/squishLink-backend-FP
                 git clone -b main https://github.com/ChidiRnweke/squishLink-backend-FP
                 
                 cd squishLink-backend-FP
@@ -66,6 +65,9 @@ jobs:
                 echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env   
 
                 docker compose pull            
-                docker compose -f compose.yml  up -d  
+                docker compose -f compose.yml  up -d
+                # perform cleanup
+                cd ~
+                rm -rf ~/squishLink-backend-FP
             EOF
 
