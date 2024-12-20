@@ -67,5 +67,8 @@ jobs:
               echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env   
 
               docker compose pull            
-              docker compose -f compose.yml  up -d  
+              docker compose -f compose.yml  up -d
+              # perform cleanup
+              cd ~
+              rm -rf ~/squishLink-backend-FP
           EOF
