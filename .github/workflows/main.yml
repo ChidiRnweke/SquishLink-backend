@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -15,13 +16,13 @@ jobs:
 
       - name: Create .secrets.env file
         run: |
-            mkdir -p config && touch ./config/.secrets.env
-            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./config/.secrets.env
-            echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./config/.secrets.env
-            echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
-            echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
-            echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
-            echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env
+          mkdir -p config && touch ./config/.secrets.env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./config/.secrets.env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./config/.secrets.env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
+          echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
+          echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
+          echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env
         shell: bash
 
       - name: Build Docker image with Compose
@@ -51,21 +52,20 @@ jobs:
 
       - name: Deploy to server
         run: |
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
-                rm -rf ~/squishLink-backend-FP
-                git clone -b main https://github.com/ChidiRnweke/squishLink-backend-FP
-                
-                cd squishLink-backend-FP
-                mkdir -p ./config
-                touch ./config/.secrets.env
-                echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./config/.secrets.env
-                echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./config/.secrets.env
-                echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
-                echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
-                echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
-                echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env   
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
+              rm -rf ~/squishLink-backend-FP
+              git clone -b main https://github.com/ChidiRnweke/squishLink-backend-FP
+              
+              cd squishLink-backend-FP
+              mkdir -p ./config
+              touch ./config/.secrets.env
+              echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./config/.secrets.env
+              echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./config/.secrets.env
+              echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> ./config/.secrets.env
+              echo "ROOT_URL=${{ secrets.ROOT_URL }}" >> ./config/.secrets.env
+              echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./config/.secrets.env
+              echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./config/.secrets.env   
 
-                docker compose pull            
-                docker compose -f compose.yml  up -d  
-            EOF
-
+              docker compose pull            
+              docker compose -f compose.yml  up -d  
+          EOF
